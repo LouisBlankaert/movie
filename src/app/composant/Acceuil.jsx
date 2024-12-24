@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import 'swiper/css';
 import 'swiper/css/pagination';
 import '../styles/carousel.css';
+import CarouselCard from './CarouselCard';
 
 export default function Acceuil() {
     const router = useRouter();
@@ -279,27 +280,11 @@ export default function Acceuil() {
                 <Swiper {...swiperSettings} className="movie-swiper">
                     {movies.map((movie) => (
                         <SwiperSlide key={movie.id}>
-                            <div 
-                                className="relative aspect-[2/3] rounded-lg overflow-hidden group cursor-pointer"
+                            <CarouselCard
+                                content={movie}
+                                type="movie"
                                 onClick={() => handleItemClick('movie', movie.id)}
-                            >
-                                <img 
-                                    src={`https://image.tmdb.org/t/p/w500${movie.poster_path}`}
-                                    alt={movie.title}
-                                    className="w-full h-full object-cover"
-                                />
-                                {/* Overlay au hover */}
-                                <div className="absolute inset-0 bg-black bg-opacity-80 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
-                                    <h3 className="text-xl font-bold text-white mb-2">{movie.title}</h3>
-                                    <div className="flex items-center justify-between text-white">
-                                        <span className="flex items-center">
-                                            <span className="text-yellow-500 mr-1">★</span>
-                                            {(movie.vote_average || 0).toFixed(1)}
-                                        </span>
-                                        <span>{movie.release_date ? new Date(movie.release_date).getFullYear() : 'N/A'}</span>
-                                    </div>
-                                </div>
-                            </div>
+                            />
                         </SwiperSlide>
                     ))}
                 </Swiper>
@@ -337,27 +322,11 @@ export default function Acceuil() {
                 <Swiper {...swiperSettings} className="series-swiper">
                     {series.map((serie) => (
                         <SwiperSlide key={serie.id}>
-                            <div 
-                                className="relative aspect-[2/3] rounded-lg overflow-hidden group cursor-pointer"
+                            <CarouselCard
+                                content={serie}
+                                type="tv"
                                 onClick={() => handleItemClick('tv', serie.id)}
-                            >
-                                <img 
-                                    src={`https://image.tmdb.org/t/p/w500${serie.poster_path}`}
-                                    alt={serie.name}
-                                    className="w-full h-full object-cover"
-                                />
-                                {/* Overlay au hover */}
-                                <div className="absolute inset-0 bg-black bg-opacity-80 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
-                                    <h3 className="text-xl font-bold text-white mb-2">{serie.name}</h3>
-                                    <div className="flex items-center justify-between text-white">
-                                        <span className="flex items-center">
-                                            <span className="text-yellow-500 mr-1">★</span>
-                                            {(serie.vote_average || 0).toFixed(1)}
-                                        </span>
-                                        <span>{serie.first_air_date ? new Date(serie.first_air_date).getFullYear() : 'N/A'}</span>
-                                    </div>
-                                </div>
-                            </div>
+                            />
                         </SwiperSlide>
                     ))}
                 </Swiper>

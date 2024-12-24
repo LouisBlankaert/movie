@@ -14,6 +14,20 @@ export default function Nav() {
         if (currentUser) {
             setUser(JSON.parse(currentUser));
         }
+
+        // Écouter les changements de localStorage
+        const handleStorageChange = (e) => {
+            if (e.key === 'currentUser') {
+                if (e.newValue) {
+                    setUser(JSON.parse(e.newValue));
+                } else {
+                    setUser(null);
+                }
+            }
+        };
+
+        window.addEventListener('storage', handleStorageChange);
+        return () => window.removeEventListener('storage', handleStorageChange);
     }, []);
 
     const handleLogout = () => {
@@ -41,7 +55,10 @@ export default function Nav() {
                 )}
                 
                 {/* logo enregistrer */}
-                <div className="group relative flex items-center gap-2 cursor-pointer">
+                <div 
+                    onClick={() => router.push('/filmsEtSeriesSave')}
+                    className="group relative flex items-center gap-2 cursor-pointer"
+                >
                     <i className="fi fi-rr-bookmark text-2xl transition-colors duration-300 text-gray-200 group-hover:text-[#c48d3f]"></i>
                     {/* Tooltip */}
                     <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 px-3 py-1 bg-[#1a1a1a] text-[#c48d3f] text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap shadow-lg border border-[#2a2a2a]">

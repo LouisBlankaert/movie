@@ -3,9 +3,6 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-// Base de données utilisateurs temporaire
-const mockUsers = [];
-
 export default function AuthPage() {
     const router = useRouter();
     const [isLogin, setIsLogin] = useState(true);
@@ -24,54 +21,28 @@ export default function AuthPage() {
         setIsLoading(true);
 
         try {
-            if (isLogin) {
-                // Vérification de connexion
-                const user = mockUsers.find(u => u.email === formData.email);
-                
-                if (!user) {
-                    throw new Error('Aucun compte trouvé avec cet email. Veuillez créer un compte.');
-                }
-                
-                if (user.password !== formData.password) {
-                    throw new Error('Mot de passe incorrect');
-                }
-
-                // Connexion réussie
-                localStorage.setItem('currentUser', JSON.stringify(user));
-                router.push('/');
-            } else {
-                // Vérification du nom
-                if (!formData.name.trim()) {
-                    throw new Error('Le nom est requis');
-                }
-
-                // Vérification du mot de passe
-                if (formData.password !== formData.confirmPassword) {
-                    throw new Error('Les mots de passe ne correspondent pas');
-                }
-
-                if (formData.password.length < 6) {
-                    throw new Error('Le mot de passe doit contenir au moins 6 caractères');
-                }
-
-                // Vérifier si l'email existe déjà
-                const existingUser = mockUsers.find(u => u.email === formData.email);
-                if (existingUser) {
-                    throw new Error('Un compte existe déjà avec cet email');
-                }
-
-                // Création du compte
-                const newUser = {
-                    name: formData.name.trim(),
+            const response = await fetch('/api/auth', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: isLogin ? 'login' : 'register',
+                    name: formData.name,
                     email: formData.email,
                     password: formData.password
-                };
-                mockUsers.push(newUser);
+                }),
+            });
 
-                // Connexion automatique après inscription
-                localStorage.setItem('currentUser', JSON.stringify(newUser));
-                router.push('/');
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Une erreur est survenue');
             }
+
+            // Connexion/Inscription réussie
+            localStorage.setItem('currentUser', JSON.stringify(data.user));
+            window.location.href = '/';
         } catch (err) {
             setError(err.message);
         } finally {
