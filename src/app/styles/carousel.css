@@ -1,0 +1,45 @@
+/* Styles pour les flèches de navigation */
+.swiper-button-next,
+.swiper-button-prev {
+    color: white !important;
+    background-color: rgba(0, 0, 0, 0.5);
+    padding: 2rem;
+    border-radius: 50%;
+    width: 1.5rem !important;
+    height: 1.5rem !important;
+}
+
+.swiper-button-next:hover,
+.swiper-button-prev:hover {
+    background-color: rgba(0, 0, 0, 0.8);
+}
+
+.swiper-button-next::after,
+.swiper-button-prev::after {
+    font-size: 1rem !important;
+}
+
+/* Styles pour les points de pagination */
+.swiper-pagination-bullet {
+    background-color: white !important;
+    opacity: 0.5;
+    margin: 0 4px !important;
+    transition: all 0.3s ease;
+}
+
+.swiper-pagination-bullet-active {
+    opacity: 1;
+    transform: scale(1.2);
+}
+
+/* Styles pour le conteneur du carousel */
+.movie-swiper,
+.series-swiper {
+    padding: 1rem 0 2rem 0 !important;
+    cursor: grab;
+}
+
+.movie-swiper:active,
+.series-swiper:active {
+    cursor: grabbing;
+}
