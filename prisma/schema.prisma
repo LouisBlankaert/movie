@@ -1,0 +1,74 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Modèle utilisateur
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations avec les collections
+  savedMovies    SavedMovie[]    // Films sauvegardés
+  savedTvShows   SavedTvShow[]   // Séries sauvegardées
+}
+
+// Modèle pour les films sauvegardés
+model SavedMovie {
+  id          String   @id @default(cuid())
+  tmdbId      Int      // ID du film dans l'API TMDB
+  title       String
+  posterPath  String?
+  overview    String?  // Description du film
+  releaseDate String?
+  addedAt     DateTime @default(now())
+  
+  // Statut du film
+  isWatched   Boolean  @default(false)  // Si le film a été vu
+  isFavorite  Boolean  @default(false)  // Si le film est en favori
+  
+  // Relation avec l'utilisateur
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+
+  // Index unique par utilisateur et film
+  @@unique([userId, tmdbId])
+}
+
+// Modèle pour les séries sauvegardées
+model SavedTvShow {
+  id          String   @id @default(cuid())
+  tmdbId      Int      // ID de la série dans l'API TMDB
+  title       String
+  posterPath  String?
+  overview    String?  // Description de la série
+  firstAirDate String?
+  addedAt     DateTime @default(now())
+  
+  // Statut de la série
+  isWatching  Boolean  @default(false)  // Si l'utilisateur regarde actuellement la série
+  isFinished  Boolean  @default(false)  // Si l'utilisateur a fini la série
+  isFavorite  Boolean  @default(false)  // Si la série est en favori
+  
+  // Suivi des épisodes
+  currentSeason Int     @default(1)
+  currentEpisode Int    @default(1)
+  
+  // Relation avec l'utilisateur
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+
+  // Index unique par utilisateur et série
+  @@unique([userId, tmdbId])
+}
