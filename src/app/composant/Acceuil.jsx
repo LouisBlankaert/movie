@@ -22,17 +22,17 @@ export default function Acceuil() {
     const [noMovieResults, setNoMovieResults] = useState(false);
     const [noSeriesResults, setNoSeriesResults] = useState(false);
 
-    const fetchTrailers = async (movieId) => {
+    const fetchTrailers = async (id, type = 'movie') => {
         try {
             const response = await fetch(
-                `https://api.themoviedb.org/3/movie/${movieId}/videos?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}&language=fr-FR`
+                `https://api.themoviedb.org/3/${type}/${id}/videos?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}&language=fr-FR`
             );
             const data = await response.json();
             // Si pas de bande-annonce en français, chercher en anglais
             let trailer = data.results.find(video => video.type === "Trailer" && video.site === "YouTube");
             if (!trailer) {
                 const enResponse = await fetch(
-                    `https://api.themoviedb.org/3/movie/${movieId}/videos?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}&language=en-US`
+                    `https://api.themoviedb.org/3/${type}/${id}/videos?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}&language=en-US`
                 );
                 const enData = await enResponse.json();
                 trailer = enData.results.find(video => video.type === "Trailer" && video.site === "YouTube");
@@ -54,7 +54,7 @@ export default function Acceuil() {
 
             // Récupérer les bandes-annonces pour les 10 premiers films
             const trailerPromises = movieData.results.slice(0, 10).map(async (movie) => {
-                const trailer = await fetchTrailers(movie.id);
+                const trailer = await fetchTrailers(movie.id, 'movie');
                 if (trailer) {
                     return {
                         ...trailer,
@@ -100,7 +100,7 @@ export default function Acceuil() {
                 // Mettre à jour les bandes-annonces pour les nouveaux films trouvés
                 if (data.results.length > 0) {
                     const trailerPromises = data.results.slice(0, 10).map(async (movie) => {
-                        const trailer = await fetchTrailers(movie.id);
+                        const trailer = await fetchTrailers(movie.id, 'movie');
                         if (trailer) {
                             return {
                                 ...trailer,
@@ -132,15 +132,20 @@ export default function Acceuil() {
 
         setIsSearchingTrailer(true);
         try {
-            // Rechercher les films correspondants à la requête
-            const searchResponse = await fetch(
-                `https://api.themoviedb.org/3/search/movie?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}&language=fr-FR&query=${query}&page=1`
-            );
-            const searchData = await searchResponse.json();
+            // Rechercher à la fois les films et les séries
+            const [movieResponse, tvResponse] = await Promise.all([
+                fetch(`https://api.themoviedb.org/3/search/movie?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}&language=fr-FR&query=${query}&page=1`),
+                fetch(`https://api.themoviedb.org/3/search/tv?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}&language=fr-FR&query=${query}&page=1`)
+            ]);
 
-            // Récupérer les bandes-annonces pour les films trouvés
-            const trailerPromises = searchData.results.slice(0, 5).map(async (movie) => {
-                const trailer = await fetchTrailers(movie.id);
+            const [movieData, tvData] = await Promise.all([
+                movieResponse.json(),
+                tvResponse.json()
+            ]);
+
+            // Combiner les résultats des films et des séries
+            const moviePromises = movieData.results.slice(0, 5).map(async (movie) => {
+                const trailer = await fetchTrailers(movie.id, 'movie');
                 if (trailer) {
                     return {
                         ...trailer,
@@ -152,8 +157,28 @@ export default function Acceuil() {
                 return null;
             });
 
-            const trailerResults = await Promise.all(trailerPromises);
-            setTrailers(trailerResults.filter(trailer => trailer !== null));
+            const tvPromises = tvData.results.slice(0, 5).map(async (show) => {
+                const trailer = await fetchTrailers(show.id, 'tv');
+                if (trailer) {
+                    return {
+                        ...trailer,
+                        movieTitle: show.name,
+                        moviePoster: show.backdrop_path,
+                        releaseDate: show.first_air_date
+                    };
+                }
+                return null;
+            });
+
+            const [movieTrailers, tvTrailers] = await Promise.all([
+                Promise.all(moviePromises),
+                Promise.all(tvPromises)
+            ]);
+
+            // Combiner et filtrer les résultats
+            const allTrailers = [...movieTrailers, ...tvTrailers].filter(trailer => trailer !== null);
+            setTrailers(allTrailers);
+
         } catch (error) {
             console.error("Erreur lors de la recherche des bandes-annonces:", error);
         }
