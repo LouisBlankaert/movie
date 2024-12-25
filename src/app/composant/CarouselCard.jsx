@@ -1,9 +1,9 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
-export default function CarouselCard({ content, type = 'movie', onClick }) {
+export default function CarouselCard({ content, type = 'movie', onClick, initialSavedState = false }) {
     const [user, setUser] = useState(null);
-    const [isSaved, setIsSaved] = useState(false);
+    const [isSaved, setIsSaved] = useState(initialSavedState);
     const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
@@ -13,29 +13,33 @@ export default function CarouselCard({ content, type = 'movie', onClick }) {
         }
     }, []);
 
-    useEffect(() => {
-        // Vérifier si le contenu est déjà sauvegardé
-        const checkIfSaved = async () => {
-            if (!user) return;
-            
-            try {
-                const response = await fetch(`/api/saved?userId=${user.id}`);
-                const data = await response.json();
-                
-                if (response.ok) {
-                    const savedItems = type === 'movie' ? data.movies : data.tvShows;
-                    setIsSaved(savedItems?.some(item => item.tmdbId === content.id) || false);
+    const checkIfSaved = useCallback(async () => {
+        if (!user) return;
+        
+        try {
+            const response = await fetch(`/api/saved?userId=${user.id}`, {
+                headers: {
+                    'Cache-Control': 'no-store',
+                    'Pragma': 'no-cache'
                 }
-            } catch (error) {
-                console.error('Erreur lors de la vérification:', error);
-            }
-        };
-
-        checkIfSaved();
+            });
+            if (!response.ok) throw new Error('Erreur réseau');
+            
+            const data = await response.json();
+            const savedItems = type === 'movie' ? data.movies : data.tvShows;
+            const isItemSaved = savedItems?.some(item => item.tmdbId === content.id) || false;
+            setIsSaved(isItemSaved);
+        } catch (error) {
+            console.error('Erreur lors de la vérification:', error);
+        }
     }, [user, content.id, type]);
 
+    useEffect(() => {
+        checkIfSaved();
+    }, [checkIfSaved]);
+
     const handleSaveToggle = async (e) => {
-        e.stopPropagation(); // Empêcher le clic de se propager à la carte
+        e.stopPropagation();
 
         if (!user) {
             window.location.href = '/auth';
@@ -47,17 +51,20 @@ export default function CarouselCard({ content, type = 'movie', onClick }) {
         try {
             if (isSaved) {
                 const response = await fetch(`/api/saved?userId=${user.id}`);
+                if (!response.ok) throw new Error('Erreur réseau');
+                
                 const data = await response.json();
                 const savedItem = (type === 'movie' ? data.movies : data.tvShows)
                     .find(item => item.tmdbId === content.id);
 
                 if (savedItem) {
-                    await fetch(`/api/saved?type=${type}&id=${savedItem.id}`, {
+                    const deleteResponse = await fetch(`/api/saved?type=${type}&id=${savedItem.id}`, {
                         method: 'DELETE'
                     });
+                    if (!deleteResponse.ok) throw new Error('Erreur de suppression');
                 }
             } else {
-                await fetch('/api/saved', {
+                const saveResponse = await fetch('/api/saved', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -68,11 +75,14 @@ export default function CarouselCard({ content, type = 'movie', onClick }) {
                         content
                     })
                 });
+                if (!saveResponse.ok) throw new Error('Erreur de sauvegarde');
             }
 
             setIsSaved(!isSaved);
         } catch (error) {
             console.error('Erreur lors de la sauvegarde:', error);
+            // Recharger l'état en cas d'erreur
+            checkIfSaved();
         } finally {
             setIsLoading(false);
         }
@@ -83,7 +93,6 @@ export default function CarouselCard({ content, type = 'movie', onClick }) {
             className="relative aspect-[2/3] rounded-lg overflow-hidden group cursor-pointer"
             onClick={onClick}
         >
-            {/* Bouton de sauvegarde */}
             <button
                 onClick={handleSaveToggle}
                 disabled={isLoading}
@@ -99,6 +108,7 @@ export default function CarouselCard({ content, type = 'movie', onClick }) {
                 src={`https://image.tmdb.org/t/p/w500${content.poster_path}`}
                 alt={type === 'movie' ? content.title : content.name}
                 className="w-full h-full object-cover"
+                loading="lazy"
             />
             
             {/* Overlay au hover */}

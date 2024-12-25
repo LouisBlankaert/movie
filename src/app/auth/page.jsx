@@ -18,6 +18,19 @@ export default function AuthPage() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
+
+        // Vérifications pour l'inscription
+        if (!isLogin) {
+            if (formData.password !== formData.confirmPassword) {
+                setError('Les mots de passe ne correspondent pas');
+                return;
+            }
+            if (formData.password.length < 6) {
+                setError('Le mot de passe doit contenir au moins 6 caractères');
+                return;
+            }
+        }
+
         setIsLoading(true);
 
         try {
@@ -128,7 +141,13 @@ export default function AuthPage() {
                                 onChange={handleChange}
                                 className="w-full px-4 py-3 mt-1 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg focus:ring-2 focus:ring-[#eab256] focus:border-transparent text-white"
                                 placeholder="••••••••"
+                                minLength={!isLogin ? 6 : undefined}
                             />
+                            {!isLogin && (
+                                <p className="mt-1 text-sm text-gray-400">
+                                    Minimum 6 caractères
+                                </p>
+                            )}
                         </div>
                         {!isLogin && (
                             <div>
@@ -142,6 +161,7 @@ export default function AuthPage() {
                                     onChange={handleChange}
                                     className="w-full px-4 py-3 mt-1 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg focus:ring-2 focus:ring-[#eab256] focus:border-transparent text-white"
                                     placeholder="••••••••"
+                                    minLength={6}
                                 />
                             </div>
                         )}

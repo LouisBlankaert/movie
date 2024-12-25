@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 
@@ -12,7 +12,32 @@ export default function FilmsEtSeriesSave() {
   });
   const [activeTab, setActiveTab] = useState('movies');
   const [isLoading, setIsLoading] = useState(true);
-  const [sortOrder, setSortOrder] = useState('newest'); // 'newest', 'oldest', 'az', 'za'
+  const [sortOrder, setSortOrder] = useState('newest');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const loadSavedContent = useCallback(async (userId) => {
+    try {
+      const response = await fetch(`/api/saved?userId=${userId}`, {
+        headers: {
+          'Cache-Control': 'no-store',
+          'Pragma': 'no-cache'
+        }
+      });
+      
+      if (!response.ok) throw new Error('Erreur de chargement');
+      
+      const data = await response.json();
+      setSavedContent({
+        movies: data.movies || [],
+        tvShows: data.tvShows || []
+      });
+    } catch (error) {
+      console.error('Erreur lors du chargement des contenus:', error);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, []);
 
   useEffect(() => {
     const currentUser = localStorage.getItem('currentUser');
@@ -23,29 +48,8 @@ export default function FilmsEtSeriesSave() {
     
     const userObj = JSON.parse(currentUser);
     setUser(userObj);
-
-    const loadSavedContent = async () => {
-      try {
-        const response = await fetch(`/api/saved?userId=${userObj.id}`);
-        const data = await response.json();
-        
-        if (response.ok) {
-          setSavedContent({
-            movies: data.movies || [],
-            tvShows: data.tvShows || []
-          });
-        } else {
-          console.error('Erreur:', data.error);
-        }
-      } catch (error) {
-        console.error('Erreur lors du chargement des contenus:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadSavedContent();
-  }, [router]);
+    loadSavedContent(userObj.id);
+  }, [router, loadSavedContent]);
 
   const handleDelete = async (type, id) => {
     try {
@@ -53,15 +57,24 @@ export default function FilmsEtSeriesSave() {
         method: 'DELETE'
       });
 
-      if (response.ok) {
-        setSavedContent(prev => ({
-          ...prev,
-          [type === 'movie' ? 'movies' : 'tvShows']: prev[type === 'movie' ? 'movies' : 'tvShows']
-            .filter(item => item.id !== id)
-        }));
-      }
+      if (!response.ok) throw new Error('Erreur de suppression');
+
+      setSavedContent(prev => ({
+        ...prev,
+        [type === 'movie' ? 'movies' : 'tvShows']: prev[type === 'movie' ? 'movies' : 'tvShows']
+          .filter(item => item.id !== id)
+      }));
     } catch (error) {
       console.error('Erreur lors de la suppression:', error);
+      // Recharger en cas d'erreur
+      if (user) loadSavedContent(user.id);
+    }
+  };
+
+  const handleRefresh = () => {
+    if (user && !isRefreshing) {
+      setIsRefreshing(true);
+      loadSavedContent(user.id);
     }
   };
 
@@ -99,93 +112,116 @@ export default function FilmsEtSeriesSave() {
               alt={item.title}
               fill
               className="object-cover transition-transform duration-300 group-hover:scale-105"
+              priority={true}
             />
           </div>
         )}
-        <div className="p-4">
-          <h3 className="text-lg font-semibold mb-2 text-white">{item.title}</h3>
-          <p className="text-gray-400 text-sm mb-4 line-clamp-2">{item.overview}</p>
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-500">
-              {type === 'movie' ? item.releaseDate : item.firstAirDate}
-            </span>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDelete(type, item.id);
-              }}
-              className="text-red-500 hover:text-red-600 transition-colors"
-            >
-              <i className="fi fi-rr-trash text-lg"></i>
-            </button>
-          </div>
+      </div>
+
+      <div className="p-4">
+        <div className="flex justify-between items-start">
+          <h3 className="text-lg font-semibold text-white mb-2">{item.title}</h3>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDelete(type, item.id);
+            }}
+            className="text-gray-400 hover:text-red-500 transition-colors duration-200"
+          >
+            <i className="fi fi-rr-trash text-xl"></i>
+          </button>
         </div>
+        
+        <p className="text-gray-400 text-sm mb-2">
+          {new Date(item.addedAt).toLocaleDateString()}
+        </p>
+        
+        {item.overview && (
+          <p className="text-gray-300 text-sm line-clamp-3">
+            {item.overview}
+          </p>
+        )}
       </div>
     </div>
   );
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#eab256]"></div>
+      <div className="min-h-screen bg-[#141414] p-8">
+        <div className="animate-pulse flex space-x-4">
+          <div className="flex-1 space-y-4 py-1">
+            <div className="h-4 bg-gray-700 rounded w-3/4"></div>
+            <div className="space-y-3">
+              <div className="h-4 bg-gray-700 rounded"></div>
+              <div className="h-4 bg-gray-700 rounded w-5/6"></div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
-  const currentContent = activeTab === 'movies' ? savedContent.movies : savedContent.tvShows;
-  const sortedContent = getSortedContent(currentContent);
-
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-white">Ma Liste</h1>
-        
-        {/* Menu de tri */}
-        <div className="flex items-center gap-4">
-          <span className="text-gray-400">Trier par:</span>
-          <select
-            value={sortOrder}
-            onChange={(e) => setSortOrder(e.target.value)}
-            className="bg-[#1a1a1a] text-gray-300 px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-[#eab256]"
-          >
-            <option value="newest">Plus récent</option>
-            <option value="oldest">Plus ancien</option>
-            <option value="az">A à Z</option>
-            <option value="za">Z à A</option>
-          </select>
-        </div>
-      </div>
-      
-      <div className="flex mb-6 space-x-4">
-        <button
-          onClick={() => setActiveTab('movies')}
-          className={`px-6 py-2 rounded-lg transition-colors duration-200 ${
-            activeTab === 'movies'
-              ? 'bg-[#eab256] text-white'
-              : 'bg-[#1a1a1a] text-gray-300 hover:bg-[#2a2a2a]'
-          }`}
-        >
-          Films ({savedContent.movies.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('tvShows')}
-          className={`px-6 py-2 rounded-lg transition-colors duration-200 ${
-            activeTab === 'tvShows'
-              ? 'bg-[#eab256] text-white'
-              : 'bg-[#1a1a1a] text-gray-300 hover:bg-[#2a2a2a]'
-          }`}
-        >
-          Séries ({savedContent.tvShows.length})
-        </button>
-      </div>
+    <div className="min-h-screen bg-[#141414] p-8">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex justify-between items-center mb-8">
+          <div className="flex space-x-4">
+            <button
+              onClick={() => setActiveTab('movies')}
+              className={`px-4 py-2 rounded-lg ${
+                activeTab === 'movies'
+                  ? 'bg-[#eab256] text-white'
+                  : 'bg-gray-800 text-gray-300'
+              }`}
+            >
+              Films ({savedContent.movies.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('tvShows')}
+              className={`px-4 py-2 rounded-lg ${
+                activeTab === 'tvShows'
+                  ? 'bg-[#eab256] text-white'
+                  : 'bg-gray-800 text-gray-300'
+              }`}
+            >
+              Séries ({savedContent.tvShows.length})
+            </button>
+          </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {sortedContent.length > 0 ? (
-          sortedContent.map(item => renderContent(item, activeTab === 'movies' ? 'movie' : 'tv'))
-        ) : (
-          <div className="col-span-full text-center py-12 text-gray-400">
-            <i className={`fi ${activeTab === 'movies' ? 'fi-rr-film' : 'fi-rr-tv'} text-4xl mb-4 block`}></i>
-            <p>Aucun {activeTab === 'movies' ? 'film' : 'série'} sauvegardé pour le moment</p>
+          <div className="flex items-center space-x-4">
+            <select
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value)}
+              className="bg-gray-800 text-gray-300 px-4 py-2 rounded-lg"
+            >
+              <option value="newest">Plus récent</option>
+              <option value="oldest">Plus ancien</option>
+              <option value="az">A-Z</option>
+              <option value="za">Z-A</option>
+            </select>
+
+            <button
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className={`p-2 rounded-lg bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors duration-200 ${
+                isRefreshing ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+            >
+              <i className={`fi fi-rr-refresh ${isRefreshing ? 'animate-spin' : ''}`}></i>
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {getSortedContent(
+            activeTab === 'movies' ? savedContent.movies : savedContent.tvShows
+          ).map((item) => renderContent(item, activeTab === 'movies' ? 'movie' : 'tv'))}
+        </div>
+
+        {((activeTab === 'movies' && savedContent.movies.length === 0) ||
+          (activeTab === 'tvShows' && savedContent.tvShows.length === 0)) && (
+          <div className="text-center text-gray-400 mt-8">
+            <p>Aucun contenu sauvegardé</p>
           </div>
         )}
       </div>
